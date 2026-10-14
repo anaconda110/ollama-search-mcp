@@ -35,27 +35,63 @@ Create one at <https://ollama.com/settings/keys>. It looks like a long random st
 
 ### 2. Add the server to your client
 
-Pick one of the three ways to provide the key: a config file (below), the `OLLAMA_API_KEY`
-environment variable, or nothing at all if the file sits in a standard location.
+Two ways in: run the published package through `npx`, or point your client at a local checkout.
+Either way the key comes from `OLLAMA_API_KEY` or a config file (see [Configuration](#configuration)).
 
-#### Claude Code
+#### From npm (recommended)
+
+Claude Code — `--scope user` matters, since the default `local` scope would confine the server to
+the directory you ran the command in:
+
+```bash
+claude mcp add --scope user ollama-search -e OLLAMA_API_KEY=your-key-here \
+  -- npx -y ollama-search-mcp
+```
+
+Codex CLI:
+
+```bash
+codex mcp add ollama-search --env OLLAMA_API_KEY=your-key-here \
+  -- npx -y ollama-search-mcp
+```
+
+Any client with a JSON config file:
+
+```json
+{
+  "mcpServers": {
+    "ollama-search": {
+      "command": "npx",
+      "args": ["-y", "ollama-search-mcp"],
+      "env": { "OLLAMA_API_KEY": "your-key-here" }
+    }
+  }
+}
+```
+
+On Windows, if the client cannot find `npx`, write `cmd /c npx -y ollama-search-mcp` instead, or
+use the local-checkout form below.
+
+#### From a local checkout
+
+The same three clients, pointed at `server.mjs` in a clone of this repo. On Windows, use the full
+path to `node.exe` (`C:\Program Files\nodejs\node.exe`) and double the backslashes in JSON.
+
+##### Claude Code
 
 ```bash
 claude mcp add --scope user ollama-search -e OLLAMA_API_KEY=your-key-here \
   -- node /absolute/path/to/server.mjs
 ```
 
-Use `--scope user` (not the default `local`) or the server will only exist in the directory you
-ran the command from.
-
-#### Codex CLI
+##### Codex CLI
 
 ```bash
 codex mcp add ollama-search --env OLLAMA_API_KEY=your-key-here \
   -- node /absolute/path/to/server.mjs
 ```
 
-#### Any client with a JSON config file
+##### Any client with a JSON config file
 
 ```json
 {

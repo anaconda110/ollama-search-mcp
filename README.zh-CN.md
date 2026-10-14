@@ -34,25 +34,61 @@ Ollama 只把它们当普通 REST 接口提供，这个项目把它变成 agent 
 
 ### 2. 把服务器加进客户端
 
-key 有三种给法：写配置文件（见下）、设 `OLLAMA_API_KEY` 环境变量、或者配置文件放在标准位置时什么都不用给。
+两条路：跑 npm 上发布好的包（客户端用 `npx` 拉取），或者指向本地检出的 `server.mjs`。
+key 的来源都是 `OLLAMA_API_KEY` 环境变量或配置文件（见[配置](#配置)）。
 
-#### Claude Code
+#### 从 npm 安装（推荐）
+
+Claude Code —— `--scope user` 不能省，默认的 `local` scope 会把服务器限制在你执行命令的那个目录里：
+
+```bash
+claude mcp add --scope user ollama-search -e OLLAMA_API_KEY=你的key \
+  -- npx -y ollama-search-mcp
+```
+
+Codex CLI：
+
+```bash
+codex mcp add ollama-search --env OLLAMA_API_KEY=你的key \
+  -- npx -y ollama-search-mcp
+```
+
+任何用 JSON 配置的客户端：
+
+```json
+{
+  "mcpServers": {
+    "ollama-search": {
+      "command": "npx",
+      "args": ["-y", "ollama-search-mcp"],
+      "env": { "OLLAMA_API_KEY": "你的key" }
+    }
+  }
+}
+```
+
+Windows 上如果客户端找不到 `npx`，写成 `cmd /c npx -y ollama-search-mcp`，或者用下面的本地检出方式。
+
+#### 从本地检出
+
+同样的三个客户端，改成指向 clone 下来的 `server.mjs`。Windows 上把 `node` 写成 `node.exe`
+的完整路径（`C:\Program Files\nodejs\node.exe`），JSON 里的反斜杠要写成双反斜杠。
+
+##### Claude Code
 
 ```bash
 claude mcp add --scope user ollama-search -e OLLAMA_API_KEY=你的key \
   -- node /绝对路径/server.mjs
 ```
 
-必须带 `--scope user`（默认是 `local`），否则该服务器只在你执行命令的那个目录里可见。
-
-#### Codex CLI
+##### Codex CLI
 
 ```bash
 codex mcp add ollama-search --env OLLAMA_API_KEY=你的key \
   -- node /绝对路径/server.mjs
 ```
 
-#### 任何用 JSON 配置的客户端
+##### 任何用 JSON 配置的客户端
 
 ```json
 {

@@ -11,7 +11,8 @@
     "config.example.json",
     "README.md",
     "README.zh-CN.md",
-    "LICENSE"
+    "LICENSE",
+    "test"
   ],
   "engines": {
     "node": ">=20.0.0"
@@ -36,5 +37,13 @@
     "zcode"
   ],
   "author": "Tom",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anaconda110/ollama-search-mcp.git"
+  },
+  "homepage": "https://github.com/anaconda110/ollama-search-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/anaconda110/ollama-search-mcp/issues"
+  }
 }
