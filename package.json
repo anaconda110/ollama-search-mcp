@@ -36,7 +36,7 @@
     "codex",
     "zcode"
   ],
-  "author": "Tom",
+  "author": "anaconda110",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -45,5 +45,10 @@
   "homepage": "https://github.com/anaconda110/ollama-search-mcp#readme",
   "bugs": {
     "url": "https://github.com/anaconda110/ollama-search-mcp/issues"
-  }
+  },
+  "contributors": [
+    {
+      "name": "anaconda110"
+    }
+  ]
 }
