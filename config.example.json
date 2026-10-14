@@ -1,0 +1,6 @@
+{
+  "baseUrl": "https://ollama.com",
+  "apiKey": "paste-your-ollama-api-key-here",
+  "timeoutMs": 60000,
+  "attempts": 3
+}

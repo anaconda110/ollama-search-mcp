@@ -1,0 +1,7 @@
+# Local configuration holds an API key - never commit it.
+config.json
+*.local.json
+.env
+
+node_modules/
+*.log

@@ -1,0 +1,40 @@
+{
+  "name": "ollama-search-mcp",
+  "version": "1.0.0",
+  "description": "Stdio MCP server exposing Ollama Cloud web search and web fetch as tools (web_search, web_fetch) for ZCode, Codex CLI, Claude Code and any other MCP client.",
+  "type": "module",
+  "bin": {
+    "ollama-search-mcp": "server.mjs"
+  },
+  "files": [
+    "server.mjs",
+    "config.example.json",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.js",
+    "test:live": "node --test test/live.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ollama",
+    "web-search",
+    "web-fetch",
+    "search",
+    "ai",
+    "agent",
+    "llm",
+    "claude-code",
+    "codex",
+    "zcode"
+  ],
+  "author": "Tom",
+  "license": "MIT"
+}
