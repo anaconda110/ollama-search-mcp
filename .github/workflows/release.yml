@@ -1,0 +1,55 @@
+# Publishes to npm when a v* tag is pushed, then cuts a GitHub Release.
+#
+# Auth is npm Trusted Publishing (OIDC), so there is no NPM_TOKEN secret and no long-lived
+# credential to rotate. It requires:
+#   * npm CLI >= 11.5.1 and Node >= 22.14 - both pinned explicitly below, because Node 24.0
+#     shipped with npm 11.3 and the runner's bundled npm is not guaranteed to be new enough
+#   * a Trusted Publisher configured on npmjs.com for this package, naming this repository
+#     and this workflow file, with "npm publish" checked under allowed actions
+# `registry-url` is deliberately left off setup-node: it would write a ${NODE_AUTH_TOKEN}
+# placeholder into .npmrc, which npm rejects when the variable is unset, and OIDC needs no
+# registry override because registry.npmjs.org is already the default.
+#
+# See "Releasing" in README.md.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # OIDC token that npm exchanges for a short-lived publish credential
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Make sure npm supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Fail before publishing if the tag disagrees with package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+
+      - name: Run the offline suite
+        run: npm test
+
+      - name: Publish to npm
+        run: npm publish
+
+      - name: Cut the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
