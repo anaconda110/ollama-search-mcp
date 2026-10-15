@@ -240,7 +240,7 @@ spaces must be quoted in the client config.
 ## Development
 
 ```bash
-npm test              # 27 unit tests, offline, ~6s (stub upstream, no network)
+npm test              # 30 unit tests, offline, ~5s (stub upstream, no network)
 npm run test:live     # 4 tests against the real API, needs OLLAMA_API_KEY
 ```
 

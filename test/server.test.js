@@ -1,13 +1,16 @@
 import { after, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { initialized, killAll, startServer, startStub } from './harness.mjs'
 
 const SEARCH = '/api/web_search'
 const FETCH = '/api/web_fetch'
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const searchBody = {
   results: [
@@ -15,7 +18,13 @@ const searchBody = {
     { title: '', url: 'https://example.com/b', content: null },
   ],
 }
-const fetchBody = { title: 'Doc', content: 'body text', links: ['https://example.com/x', null, 'https://example.com/y'] }
+// Deliberately dirty: a duplicate of each URL, a null, a blank string, and padding
+// around one URL. The tool must trim and collapse these down to two links.
+const fetchBody = {
+  title: 'Doc',
+  content: 'body text',
+  links: ['https://example.com/x', null, 'https://example.com/y', 'https://example.com/x', '', '  https://example.com/y  '],
+}
 
 const stub = await startStub({
   [SEARCH]: { body: searchBody },
@@ -123,6 +132,8 @@ describe('web_search', () => {
     assert.equal(stub.requests.at(-1).body.max_results, 1)
     await server.call('tools/call', { name: 'web_search', arguments: { query: 'x' } })
     assert.equal(stub.requests.at(-1).body.max_results, 5)
+    await server.call('tools/call', { name: 'web_search', arguments: { query: 'x', max_results: 2.9 } })
+    assert.equal(stub.requests.at(-1).body.max_results, 2)
     await server.stop()
   })
 
@@ -177,6 +188,8 @@ describe('web_fetch', () => {
     assert.match(text, /Title: Doc/)
     assert.match(text, /body text/)
     assert.match(text, /Links \(2\)/)
+    assert.equal((text.match(/^- /gm) || []).length, 2)
+    assert.equal((text.match(/https:\/\/example\.com\/x/g) || []).length, 1)
     assert.equal(stub.requests.at(-1).body.url, 'https://example.com/doc')
     await server.stop()
   })
@@ -296,10 +309,50 @@ describe('configuration', () => {
     await server.stop()
   })
 
+  it('prefers the user config dir over a config.json next to server.mjs', async (t) => {
+    const repoLocal = join(REPO_ROOT, 'config.json')
+    if (existsSync(repoLocal)) return t.skip('a real config.json already sits next to server.mjs')
+
+    const xdg = mkdtempSync(join(tmpdir(), 'ollama-search-mcp-xdg-'))
+    mkdirSync(join(xdg, 'ollama-search-mcp'), { recursive: true })
+    writeFileSync(join(xdg, 'ollama-search-mcp', 'config.json'), JSON.stringify({ baseUrl: stub.baseUrl, apiKey: 'user-dir-key' }))
+    // Points at the discard port, so if this file wins the call cannot reach the stub.
+    writeFileSync(repoLocal, JSON.stringify({ baseUrl: 'http://127.0.0.1:9', apiKey: 'repo-local-key' }))
+    try {
+      const before = stub.requests.length
+      const { server } = await initialized({ env: { XDG_CONFIG_HOME: xdg, OLLAMA_API_KEY: '', OLLAMA_BASE_URL: '' } })
+      await server.call('tools/call', { name: 'web_search', arguments: { query: 'q' } })
+      assert.equal(stub.requests.length, before + 1)
+      assert.equal(stub.requests.at(-1).auth, 'Bearer user-dir-key')
+      await server.stop()
+    } finally {
+      rmSync(repoLocal, { force: true })
+      rmSync(xdg, { recursive: true, force: true })
+    }
+  })
+
   it('exits with 2 when an explicitly named config file is missing', async () => {
     const server = startServer({ baseUrl: stub.baseUrl, args: ['--config', join(dir, 'does-not-exist.json')] })
     const { code } = await server.exited
     assert.equal(code, 2)
+  })
+
+  it('exits with 2 when --config is given no value', async () => {
+    const server = startServer({ baseUrl: stub.baseUrl, args: ['--config'] })
+    const { code } = await server.exited
+    assert.equal(code, 2)
+    assert.match(server.stderr, /--config needs a path/)
+  })
+
+  it('does not warn about the path handed to `--config <path>`', async () => {
+    const path = join(dir, 'quiet.json')
+    writeFileSync(path, JSON.stringify({ baseUrl: stub.baseUrl, apiKey: 'quiet-key' }))
+    const server = startServer({ configPath: path, env: { OLLAMA_API_KEY: '', OLLAMA_BASE_URL: '' } })
+    await server.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } })
+    await server.call('tools/call', { name: 'web_search', arguments: { query: 'q' } })
+    assert.equal(stub.requests.at(-1).auth, 'Bearer quiet-key')
+    assert.doesNotMatch(server.stderr, /ignoring unknown argument/)
+    await server.stop()
   })
 
   it('prints help and version without starting the protocol loop', async () => {
