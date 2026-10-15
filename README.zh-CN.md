@@ -232,7 +232,7 @@ Claude Code 默认的 `local` scope 是按目录生效的，用 `--scope user`�
 ## 开发
 
 ```bash
-npm test              # 27 个离线单测，约 6 秒（本地 stub 上游，不联网）
+npm test              # 30 个离线单测，约 5 秒（本地 stub 上游，不联网）
 npm run test:live     # 4 个真接口测试，需要 OLLAMA_API_KEY
 ```
 

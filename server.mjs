@@ -49,14 +49,25 @@ const VERSION = readVersion()
 // ---------------------------------------------------------------- configuration
 
 function parseArgv(argv) {
-  const out = { configPath: undefined, help: false, version: false }
+  const out = { configPath: undefined, configPathMissing: false, help: false, version: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--help' || arg === '-h') out.help = true
     else if (arg === '--version' || arg === '-v') out.version = true
-    else if (arg === '--config') out.configPath = argv[i + 1]
-    else if (arg.startsWith('--config=')) out.configPath = arg.slice('--config='.length)
-    else warn(`ignoring unknown argument: ${arg}`)
+    else if (arg === '--config') {
+      // Consume the value here. Without this, the loop would visit the path on the next
+      // pass and warn about it as if it were an unknown argument.
+      const value = argv[i + 1]
+      if (value === undefined || value.startsWith('-')) out.configPathMissing = true
+      else {
+        out.configPath = value
+        i += 1
+      }
+    } else if (arg.startsWith('--config=')) {
+      const value = arg.slice('--config='.length)
+      if (value === '') out.configPathMissing = true
+      else out.configPath = value
+    } else warn(`ignoring unknown argument: ${arg}`)
   }
   return out
 }
@@ -71,8 +82,11 @@ function configCandidates(cliPath) {
   const list = []
   if (cliPath) list.push({ path: resolve(cliPath), explicit: true })
   if (process.env.OLLAMA_MCP_CONFIG) list.push({ path: resolve(process.env.OLLAMA_MCP_CONFIG), explicit: true })
-  list.push({ path: join(HERE, 'config.json'), explicit: false })
+  // README's precedence, lowest to highest. The user-level file outranks the one next to
+  // server.mjs, which lives in a checkout (or inside node_modules under npx) - so a stray
+  // file there cannot silently take over the baseUrl and key the user configured.
   list.push({ path: join(userConfigDir(), 'config.json'), explicit: false })
+  list.push({ path: join(HERE, 'config.json'), explicit: false })
   return list
 }
 
@@ -86,9 +100,10 @@ function loadConfig() {
         `launched by an MCP client, not by hand. Run it in a terminal only to check for errors.\n\n` +
         `Configuration, lowest to highest precedence:\n` +
         `  1. built-in defaults\n` +
-        `  2. config.json next to this file, or in ${join(userConfigDir(), 'config.json')}\n` +
-        `  3. a file named by --config or OLLAMA_MCP_CONFIG\n` +
-        `  4. environment variables (OLLAMA_API_KEY, OLLAMA_BASE_URL, OLLAMA_MCP_*)\n\n` +
+        `  2. config.json next to this file\n` +
+        `  3. config.json in ${userConfigDir()}\n` +
+        `  4. a file named by --config or OLLAMA_MCP_CONFIG\n` +
+        `  5. environment variables (OLLAMA_API_KEY, OLLAMA_BASE_URL, OLLAMA_MCP_*)\n\n` +
         `See README.md for the full list.\n`
     )
     process.exit(0)
@@ -96,6 +111,10 @@ function loadConfig() {
   if (cli.version) {
     process.stdout.write(`${NAME} ${VERSION}\n`)
     process.exit(0)
+  }
+  if (cli.configPathMissing) {
+    warn('--config needs a path, for example: --config /path/to/config.json')
+    process.exit(2)
   }
 
   let file = {}
@@ -266,6 +285,11 @@ function num(value, fallback, min, max) {
   return Math.min(Math.max(n, min), max)
 }
 
+/** Same as num(), for arguments the upstream API defines as integers. */
+function int(value, fallback, min, max) {
+  return Math.trunc(num(value, fallback, min, max))
+}
+
 const tools = [
   {
     name: 'web_search',
@@ -305,7 +329,7 @@ const tools = [
 async function runWebSearch(args) {
   const query = String(args?.query ?? '').trim()
   if (!query) throw new Error('query is required')
-  const maxResults = num(args?.max_results, 5, 1, 10)
+  const maxResults = int(args?.max_results, 5, 1, 10)
   const maxChars = num(args?.max_chars, 1500, 200, Number.MAX_SAFE_INTEGER)
   const data = await callUpstream(SEARCH_PATH, { query, max_results: maxResults })
   const results = Array.isArray(data?.results) ? data.results : []
@@ -321,7 +345,10 @@ async function runWebFetch(args) {
   if (!/^https?:\/\//i.test(url)) throw new Error('url must be an absolute http(s) URL')
   const maxChars = num(args?.max_chars, 20000, 500, Number.MAX_SAFE_INTEGER)
   const data = await callUpstream(FETCH_PATH, { url })
-  const links = Array.isArray(data?.links) ? data.links.filter(Boolean) : []
+  // Non-string entries and duplicates are dropped rather than forwarded to the model.
+  const links = Array.isArray(data?.links)
+    ? [...new Set(data.links.filter((l) => typeof l === 'string' && l.trim() !== '').map((l) => l.trim()))]
+    : []
   const parts = [`Title: ${data?.title || '(untitled)'}`, `URL: ${url}`, '', clip(data?.content, maxChars)]
   if (links.length > 0) {
     parts.push('', `Links (${links.length}):`, links.slice(0, 40).map((l) => `- ${l}`).join('\n'))
