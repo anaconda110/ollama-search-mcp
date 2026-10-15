@@ -1,6 +1,6 @@
 {
   "name": "ollama-search-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Stdio MCP server exposing Ollama Cloud web search and web fetch as tools (web_search, web_fetch) for ZCode, Codex CLI, Claude Code and any other MCP client.",
   "type": "module",
   "bin": {
