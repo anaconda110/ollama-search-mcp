@@ -250,6 +250,31 @@ test/server.test.js    离线测试
 test/live.test.js      联网测试
 ```
 
+### 发布
+
+发布已自动化：推一个 `v*` tag 会跑离线测试、发布到 npm，并创建 GitHub Release，三件事都由
+`.github/workflows/release.yml` 完成；tag 和 `package.json` 版本不一致时会在发布前直接失败。
+
+```bash
+npm version 1.0.1 --no-git-tag-version   # 或者直接改 package.json
+git commit -am "chore: release 1.0.1"
+git push
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+鉴权走 npm [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)，不需要 `NPM_TOKEN`
+secret，也没有长期 token，provenance 会自动附带。在 npmjs.com 的包设置里一次性配置
+**Settings → Trusted Publisher → GitHub Actions**：
+
+| 字段 | 值 |
+|---|---|
+| Organization or user | `anaconda110` |
+| Repository | `ollama-search-mcp` |
+| Workflow filename | `release.yml` |
+| Allowed actions | 必须勾上 **`npm publish`** |
+
+最后一行是容易踩的坑：默认只允许 `npm stage publish`，不勾上 `npm publish` 发布会一直失败。
+
 ## 已知边界
 
 - **官方没有公布搜索额度**。实测串行、并发（同时 4 个、2×3 轮）全部 200 且响应体一致。

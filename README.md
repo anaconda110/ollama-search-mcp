@@ -260,6 +260,33 @@ test/server.test.js    offline suite
 test/live.test.js      network suite
 ```
 
+### Releasing
+
+Publishing is automated: pushing a `v*` tag runs the offline suite, publishes to npm, and cuts a
+GitHub Release. `.github/workflows/release.yml` does all three, and it refuses to publish when
+the tag and the `package.json` version disagree.
+
+```bash
+npm version 1.0.1 --no-git-tag-version   # or edit package.json by hand
+git commit -am "chore: release 1.0.1"
+git push
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+Auth is npm [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/), so there is no
+`NPM_TOKEN` secret and no long-lived token; provenance is attached automatically. Configure it
+once on npmjs.com under the package's **Settings → Trusted Publisher → GitHub Actions**:
+
+| Field | Value |
+|---|---|
+| Organization or user | `anaconda110` |
+| Repository | `ollama-search-mcp` |
+| Workflow filename | `release.yml` |
+| Allowed actions | must include **`npm publish`** |
+
+That last row is the one that bites: the default only allows `npm stage publish`, so a release
+fails until `npm publish` is ticked.
+
 ## Notes and limitations
 
 - **No search quota is documented.** In testing, serial and parallel bursts (4 at once, 2×3 rounds)
